@@ -63,21 +63,7 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [state, setState] = useState<AppState>(() => {
-    const saved = localStorage.getItem('appState');
-    if (saved) {
-      // Need to ensure new state properties exist if migrating from old state
-      const parsed = JSON.parse(saved);
-      return { 
-        ...defaultState, 
-        ...parsed,
-        users: parsed.users || defaultState.users,
-        teams: parsed.teams || defaultState.teams,
-        periods: parsed.periods || defaultState.periods,
-        roleColors: parsed.roleColors || defaultState.roleColors
-      };
-    }
-    return defaultState;
-  });
+const [state, setState] = useState<AppState>(defaultState);
 
   useEffect(() => {
     localStorage.setItem('appState', JSON.stringify(state));
