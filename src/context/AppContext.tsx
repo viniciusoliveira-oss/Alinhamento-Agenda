@@ -65,15 +65,40 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [state, setState] = useState<AppState>(() => {
 const [state, setState] = useState<AppState>(defaultState);
 
-  useEffect(() => {
-    localStorage.setItem('appState', JSON.stringify(state));
-  }, [state]);
   
   useEffect(() => {
     const unsubscribe = initAuth();
     return () => unsubscribe();
   }, []);
 
+    useEffect(() => {
+  loadData();
+}, []);
+
+const loadData = async () => {
+  const [
+    users,
+    teams,
+    situations,
+    reasons,
+    periods
+  ] = await Promise.all([
+    supabase.from("usuarios").select("*"),
+    supabase.from("equipes").select("*"),
+    supabase.from("situacoes").select("*"),
+    supabase.from("motivos").select("*"),
+    supabase.from("periodos").select("*"),
+  ]);
+
+  setState(prev => ({
+    ...prev,
+    users: users.data ?? [],
+    teams: teams.data ?? [],
+    situations: situations.data ?? [],
+    predefinedReasons: reasons.data ?? [],
+    periods: periods.data ?? []
+  }));
+};
 
   const login = (username: string): boolean => {
     const existingUser = state.users.find(u => u.username.toLowerCase() === username.toLowerCase());
@@ -90,17 +115,26 @@ const [state, setState] = useState<AppState>(defaultState);
   };
 
 
-  const addSituation = (situationData: Omit<Situation, 'id' | 'createdAt'>) => {
-    const newSituation: Situation = {
-      ...situationData,
-      id: crypto.randomUUID(),
-      createdAt: new Date().toISOString(),
-    };
-    setState((prev) => ({
-      ...prev,
-      situations: [newSituation, ...prev.situations],
+const addSituation = async (situationData) => {
+
+    const { data, error } = await supabase
+        .from("situacoes")
+        .insert({
+            ...situationData
+        })
+        .select()
+        .single();
+
+    if (error) {
+        console.error(error);
+        return;
+    }
+
+    setState(prev => ({
+        ...prev,
+        situations: [data, ...prev.situations]
     }));
-  };
+}
 
   const updateSituation = (id: string, updates: Partial<Situation>) => {
     setState((prev) => ({
