@@ -1,0 +1,6 @@
+{
+  "name": "Plataforma de Gestão de Situações",
+  "description": "App para gerenciar situações e erros com abas de admin e atendente, permitindo o registro de ocorrências, cancelamentos e reagendamentos com motivos predefinidos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
