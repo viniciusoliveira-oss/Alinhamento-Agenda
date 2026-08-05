@@ -4,8 +4,6 @@ import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, on
 import { collection, doc, setDoc, getDocs, onSnapshot, query, updateDoc, deleteDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { PredefinedReason, Situation, User, Team, Period, Role } from '../types';
 import { handleFirestoreError, OperationType } from '../lib/firebaseHelper';
-import { secondaryAuth } from '../lib/firebaseSecondary';
-
 
 interface AppState {
   currentUser: User | null;
@@ -68,7 +66,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           console.log('No users found. Bootstrapping admin...');
           try {
              // Create admin user in secondary auth
-             const result = await createUserWithEmailAndPassword(secondaryAuth, 'admin@sistema.local', 'Mudar@123');
+             const result = await createUserWithEmailAndPassword(auth, 'admin@sistema.local', 'Mudar@123');
              const adminUser: User = {
                id: result.user.uid,
                uid: result.user.uid,
@@ -78,7 +76,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                requirePasswordChange: false // Admin can keep it or change it, but let's not force on first bootstrap so they can get in
              };
              await setDoc(doc(db, 'users', result.user.uid), adminUser);
-             await signOut(secondaryAuth);
           } catch(e) {
             console.error('Failed to bootstrap admin:', e);
           }
@@ -240,7 +237,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await setDoc(doc(db, 'users', result.user.uid), newUser);
       
       // Sign out the secondary auth so it doesn't stay logged in
-      await signOut(secondaryAuth);
     } catch (error) {
       handleFirestoreError(error, OperationType.CREATE, 'users');
     }
