@@ -18,10 +18,9 @@ export const NewSituationModal = ({ isOpen, onClose, situation, mode }: NewSitua
   const [type, setType] = useState<SituationType>('erro');
   const [predefinedReasonId, setPredefinedReasonId] = useState('');
   const [reason, setReason] = useState('');
-  const [attendantId, setAttendantId] = useState('');
+  const [attendantName, setAttendantName] = useState(currentUser?.name || '');
   const [date, setDate] = useState('');
   const [periodId, setPeriodId] = useState('');
-  const { users } = useAppContext();
 
   useEffect(() => {
     if (situation) {
@@ -30,7 +29,7 @@ export const NewSituationModal = ({ isOpen, onClose, situation, mode }: NewSitua
       setType(situation.type);
       setPredefinedReasonId(situation.predefinedReasonId || '');
       setReason(situation.reason);
-      setAttendantId(situation.attendantId || '');
+      setAttendantName(situation.attendantName);
       setDate(situation.date);
       setPeriodId(situation.periodId);
     } else {
@@ -42,22 +41,8 @@ export const NewSituationModal = ({ isOpen, onClose, situation, mode }: NewSitua
     e.preventDefault();
     if (mode === 'view') return;
     
-    const attendant = users.find(u => u.id === attendantId);
-    
     const payload = {
-      title, 
-      report, 
-      type, 
-      predefinedReasonId, 
-      reason, 
-      attendantId, 
-      attendantName: attendant?.name || '', 
-      openedById: currentUser?.id || '',
-      openedByName: currentUser?.name || '',
-      managerId: attendant?.managerId || '',
-      teamId: attendant?.teamId || '',
-      date, 
-      periodId
+      title, report, type, predefinedReasonId, reason, attendantName, date, periodId
     };
     
     if (mode === 'create') {
@@ -107,12 +92,7 @@ export const NewSituationModal = ({ isOpen, onClose, situation, mode }: NewSitua
             </div>
             <div>
               <label className="block text-[10px] uppercase font-bold text-[#94A3B8] tracking-wider mb-1">Técnico / Atendente</label>
-              <select disabled={isReadOnly} required value={attendantId} onChange={(e) => setAttendantId(e.target.value)} className="w-full bg-[#050A12] border border-[#334155] rounded-lg p-3 text-sm text-[#E2E8F0] focus:outline-none focus:border-cyan-500/50">
-                <option value="">Selecione o Atendente</option>
-                {users.map(u => (
-                  <option key={u.id} value={u.id}>{u.name}</option>
-                ))}
-              </select>
+              <input readOnly={isReadOnly} required type="text" value={attendantName} onChange={(e) => setAttendantName(e.target.value)} className="w-full bg-[#050A12] border border-[#334155] rounded-lg p-3 text-sm text-[#E2E8F0] focus:outline-none focus:border-cyan-500/50" />
             </div>
             <div>
               <label className="block text-[10px] uppercase font-bold text-[#94A3B8] tracking-wider mb-1">Data da Ocorrência</label>

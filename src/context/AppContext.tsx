@@ -1,9 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { auth, db } from '../lib/firebase';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut, onAuthStateChanged, updatePassword } from 'firebase/auth';
-import { collection, doc, setDoc, getDocs, onSnapshot, query, updateDoc, deleteDoc, serverTimestamp, getDoc } from 'firebase/firestore';
+import { initAuth, getAccessToken, googleSignIn, logout as googleLogout } from '../lib/googleAuth';
 import { PredefinedReason, Situation, User, Team, Period, Role } from '../types';
-import { handleFirestoreError, OperationType } from '../lib/firebaseHelper';
 
 interface AppState {
   currentUser: User | null;
@@ -13,274 +10,203 @@ interface AppState {
   predefinedReasons: PredefinedReason[];
   periods: Period[];
   roleColors: Record<Role, string>;
-  isFirebaseReady: boolean;
 }
 
 interface AppContextType extends AppState {
-  login: (email: string, pass: string) => Promise<boolean>;
+  login: (username: string) => boolean;
   logout: () => void;
-  addSituation: (situation: Omit<Situation, 'id' | 'createdAt'>) => Promise<void>;
-  updateSituation: (id: string, situation: Partial<Situation>) => Promise<void>;
-  addPredefinedReason: (reason: Omit<PredefinedReason, 'id'>) => Promise<void>;
-  deletePredefinedReason: (id: string) => Promise<void>;
-  addPeriod: (period: Omit<Period, 'id'>) => Promise<void>;
-  deletePeriod: (id: string) => Promise<void>;
-  addUser: (user: Omit<User, 'id'>) => Promise<void>;
-  updateUser: (id: string, user: Partial<User>) => Promise<void>;
-  deleteUser: (id: string) => Promise<void>;
-  addTeam: (team: Omit<Team, 'id'>) => Promise<void>;
-  updateTeam: (id: string, team: Partial<Team>) => Promise<void>;
-  deleteTeam: (id: string) => Promise<void>;
+  addSituation: (situation: Omit<Situation, 'id' | 'createdAt'>) => void;
+  updateSituation: (id: string, situation: Partial<Situation>) => void;
+  addPredefinedReason: (reason: Omit<PredefinedReason, 'id'>) => void;
+  deletePredefinedReason: (id: string) => void;
+  addPeriod: (period: Omit<Period, 'id'>) => void;
+  deletePeriod: (id: string) => void;
+  addUser: (user: Omit<User, 'id'>) => void;
+  updateUser: (id: string, user: Partial<User>) => void;
+  deleteUser: (id: string) => void;
+  addTeam: (team: Omit<Team, 'id'>) => void;
+  updateTeam: (id: string, team: Partial<Team>) => void;
+  deleteTeam: (id: string) => void;
   updateRoleColor: (role: Role, color: string) => void;
-  changePassword: (newPass: string) => Promise<void>;
 }
 
-const defaultRoleColors: Record<Role, string> = {
-  admin: '#ef4444',
-  gestor: '#f59e0b',
-  supervisor: '#8b5cf6',
-  atendente: '#0ea5e9'
+const defaultState: AppState = {
+  currentUser: null,
+  users: [
+    { id: 'u1', name: 'Administrador', username: 'admin', role: 'admin' },
+  ],
+  teams: [],
+  situations: [],
+  predefinedReasons: [
+    { id: '1', type: 'cancelamento', label: 'Cliente ausente' },
+    { id: '2', type: 'cancelamento', label: 'Endereço incorreto' },
+    { id: '3', type: 'reagendamento', label: 'Erro interno' },
+    { id: '4', type: 'reagendamento', label: 'Falta de material' },
+    { id: '5', type: 'erro', label: 'Falha de Hardware' },
+    { id: '6', type: 'erro', label: 'Instabilidade de Rede' },
+  ],
+  periods: [
+    { id: 'p1', label: 'Manhã' },
+    { id: 'p2', label: 'Tarde' },
+    { id: 'p3', label: 'Noite' },
+    { id: 'p4', label: 'Madrugada' },
+  ],
+  roleColors: {
+    admin: '#ef4444', // red
+    gestor: '#f59e0b', // amber
+    supervisor: '#8b5cf6', // violet
+    atendente: '#0ea5e9' // sky
+  }
 };
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [state, setState] = useState<AppState>({
-    currentUser: null,
-    users: [],
-    teams: [],
-    situations: [],
-    predefinedReasons: [],
-    periods: [],
-    roleColors: defaultRoleColors,
-    isFirebaseReady: false,
+  const [state, setState] = useState<AppState>(() => {
+    const saved = localStorage.getItem('appState');
+    if (saved) {
+      // Need to ensure new state properties exist if migrating from old state
+      const parsed = JSON.parse(saved);
+      return { 
+        ...defaultState, 
+        ...parsed,
+        users: parsed.users || defaultState.users,
+        teams: parsed.teams || defaultState.teams,
+        periods: parsed.periods || defaultState.periods,
+        roleColors: parsed.roleColors || defaultState.roleColors
+      };
+    }
+    return defaultState;
   });
 
+  useEffect(() => {
+    localStorage.setItem('appState', JSON.stringify(state));
+  }, [state]);
   
   useEffect(() => {
-    // Bootstrap admin if not exists
-    const checkBootstrap = async () => {
-      try {
-        const usersSnap = await getDocs(collection(db, 'users'));
-        if (usersSnap.empty) {
-          console.log('No users found. Bootstrapping admin...');
-          try {
-             // Create admin user in secondary auth
-             const result = await createUserWithEmailAndPassword(auth, 'admin@sistema.local', 'Mudar@123');
-             const adminUser: User = {
-               id: result.user.uid,
-               uid: result.user.uid,
-               name: 'Administrador',
-               username: 'admin@sistema.local',
-               role: 'admin',
-               requirePasswordChange: false // Admin can keep it or change it, but let's not force on first bootstrap so they can get in
-             };
-             await setDoc(doc(db, 'users', result.user.uid), adminUser);
-          } catch(e) {
-            console.error('Failed to bootstrap admin:', e);
-          }
-        }
-      } catch (e) {
-         console.error('Failed to check users for bootstrap:', e);
-      }
-    };
-    checkBootstrap();
-  }, []);
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-      if (firebaseUser) {
-        try {
-          const userDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
-          if (userDoc.exists()) {
-            setState(s => ({ ...s, currentUser: userDoc.data() as User, isFirebaseReady: true }));
-          } else {
-            setState(s => ({ ...s, currentUser: null, isFirebaseReady: true }));
-          }
-        } catch (e) {
-          console.error(e);
-          setState(s => ({ ...s, isFirebaseReady: true }));
-        }
-      } else {
-        setState(s => ({ ...s, currentUser: null, isFirebaseReady: true }));
-      }
-    });
+    const unsubscribe = initAuth();
     return () => unsubscribe();
   }, []);
 
-  useEffect(() => {
-    if (!state.currentUser) return;
 
-    const unsubUsers = onSnapshot(collection(db, 'users'), async (snapshot) => {
-      const users = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as User));
-      setState(s => ({ ...s, users }));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'users'));
-
-    const unsubTeams = onSnapshot(collection(db, 'teams'), (snapshot) => {
-      const teams = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Team));
-      setState(s => ({ ...s, teams }));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'teams'));
-
-    const unsubSituations = onSnapshot(collection(db, 'situations'), (snapshot) => {
-      const situations = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Situation));
-      setState(s => ({ ...s, situations }));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'situations'));
-
-    const unsubReasons = onSnapshot(collection(db, 'predefinedReasons'), (snapshot) => {
-      const predefinedReasons = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as PredefinedReason));
-      setState(s => ({ ...s, predefinedReasons }));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'predefinedReasons'));
-
-    const unsubPeriods = onSnapshot(collection(db, 'periods'), (snapshot) => {
-      const periods = snapshot.docs.map(d => ({ ...d.data(), id: d.id } as Period));
-      setState(s => ({ ...s, periods }));
-    }, (error) => handleFirestoreError(error, OperationType.GET, 'periods'));
-
-    return () => {
-      unsubUsers(); unsubTeams(); unsubSituations(); unsubReasons(); unsubPeriods();
-    };
-  }, [state.currentUser]);
-
-  const login = async (email: string, pass: string): Promise<boolean> => {
-    try {
-      await signInWithEmailAndPassword(auth, email, pass);
+  const login = (username: string): boolean => {
+    const existingUser = state.users.find(u => u.username.toLowerCase() === username.toLowerCase());
+    if (existingUser) {
+      setState((prev) => ({ ...prev, currentUser: existingUser }));
       return true;
-    } catch (e) {
-      console.error(e);
-      return false;
     }
+    return false;
   };
 
-  const logout = async () => {
-    await signOut(auth);
-  };
-  
-  const changePassword = async (newPass: string) => {
-    if (auth.currentUser) {
-      await updatePassword(auth.currentUser, newPass);
-      await updateDoc(doc(db, 'users', auth.currentUser.uid), { requirePasswordChange: false });
-    }
-  }
-
-  const addSituation = async (situationData: Omit<Situation, 'id' | 'createdAt'>) => {
-    try {
-      const id = crypto.randomUUID();
-      const newSituation = {
-        ...situationData,
-        id,
-        createdAt: new Date().toISOString(),
-      };
-      await setDoc(doc(db, 'situations', id), newSituation);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'situations');
-    }
+  const logout = () => {
+    googleLogout();
+    setState((prev) => ({ ...prev, currentUser: null }));
   };
 
-  const updateSituation = async (id: string, updates: Partial<Situation>) => {
-    try {
-      await updateDoc(doc(db, 'situations', id), updates);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'situations');
-    }
+
+  const addSituation = (situationData: Omit<Situation, 'id' | 'createdAt'>) => {
+    const newSituation: Situation = {
+      ...situationData,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+    };
+    setState((prev) => ({
+      ...prev,
+      situations: [newSituation, ...prev.situations],
+    }));
   };
 
-  const addPredefinedReason = async (reasonData: Omit<PredefinedReason, 'id'>) => {
-    try {
-      const id = crypto.randomUUID();
-      await setDoc(doc(db, 'predefinedReasons', id), { ...reasonData, id });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'predefinedReasons');
-    }
+  const updateSituation = (id: string, updates: Partial<Situation>) => {
+    setState((prev) => ({
+      ...prev,
+      situations: prev.situations.map(s => s.id === id ? { ...s, ...updates } : s)
+    }));
   };
 
-  const deletePredefinedReason = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, 'predefinedReasons', id));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'predefinedReasons');
-    }
+  const addPredefinedReason = (reasonData: Omit<PredefinedReason, 'id'>) => {
+    const newReason: PredefinedReason = {
+      ...reasonData,
+      id: crypto.randomUUID(),
+    };
+    setState((prev) => ({
+      ...prev,
+      predefinedReasons: [...prev.predefinedReasons, newReason],
+    }));
   };
 
-  const addPeriod = async (periodData: Omit<Period, 'id'>) => {
-    try {
-      const id = crypto.randomUUID();
-      await setDoc(doc(db, 'periods', id), { ...periodData, id });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'periods');
-    }
+  const deletePredefinedReason = (id: string) => {
+    setState((prev) => ({
+      ...prev,
+      predefinedReasons: prev.predefinedReasons.filter((r) => r.id !== id),
+    }));
   };
 
-  const deletePeriod = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, 'periods', id));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'periods');
-    }
+  const addPeriod = (periodData: Omit<Period, 'id'>) => {
+    const newPeriod: Period = {
+      ...periodData,
+      id: crypto.randomUUID(),
+    };
+    setState((prev) => ({
+      ...prev,
+      periods: [...prev.periods, newPeriod],
+    }));
   };
 
-  const addUser = async (userData: Omit<User, 'id'>) => {
-    try {
-      // Default password is 'Mudar@123'
-      // We assume userData.username is actually an email or we use email for auth.
-      // Wait, User has username and name. Let's assume username is the email for Firebase.
-      const email = userData.username.includes('@') ? userData.username : `${userData.username}@sistema.local`;
-      const result = await createUserWithEmailAndPassword(secondaryAuth, email, 'Mudar@123');
-      
-      const newUser = {
-        ...userData,
-        username: email, // ensure we store the email used
-        id: result.user.uid,
-        uid: result.user.uid,
-        requirePasswordChange: true
-      };
-      
-      await setDoc(doc(db, 'users', result.user.uid), newUser);
-      
-      // Sign out the secondary auth so it doesn't stay logged in
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'users');
-    }
+  const deletePeriod = (id: string) => {
+    setState((prev) => ({
+      ...prev,
+      periods: prev.periods.filter((p) => p.id !== id),
+    }));
   };
 
-  const updateUser = async (id: string, updates: Partial<User>) => {
-    try {
-      await updateDoc(doc(db, 'users', id), updates);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'users');
-    }
+  const addUser = (userData: Omit<User, 'id'>) => {
+    const newUser: User = {
+      ...userData,
+      id: crypto.randomUUID(),
+    };
+    setState((prev) => ({
+      ...prev,
+      users: [...prev.users, newUser],
+    }));
   };
 
-  const deleteUser = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, 'users', id));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'users');
-    }
+  const updateUser = (id: string, updates: Partial<User>) => {
+    setState((prev) => ({
+      ...prev,
+      users: prev.users.map((u) => (u.id === id ? { ...u, ...updates } : u)),
+    }));
   };
 
-  const addTeam = async (teamData: Omit<Team, 'id'>) => {
-    try {
-      const id = crypto.randomUUID();
-      await setDoc(doc(db, 'teams', id), { ...teamData, id });
-    } catch (error) {
-      handleFirestoreError(error, OperationType.CREATE, 'teams');
-    }
+  const deleteUser = (id: string) => {
+    setState((prev) => ({
+      ...prev,
+      users: prev.users.filter((u) => u.id !== id),
+    }));
   };
 
-  const updateTeam = async (id: string, updates: Partial<Team>) => {
-    try {
-      await updateDoc(doc(db, 'teams', id), updates);
-    } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'teams');
-    }
+  const addTeam = (teamData: Omit<Team, 'id'>) => {
+    const newTeam: Team = {
+      ...teamData,
+      id: crypto.randomUUID(),
+    };
+    setState((prev) => ({
+      ...prev,
+      teams: [...prev.teams, newTeam],
+    }));
   };
 
-  const deleteTeam = async (id: string) => {
-    try {
-      await deleteDoc(doc(db, 'teams', id));
-    } catch (error) {
-      handleFirestoreError(error, OperationType.DELETE, 'teams');
-    }
+  const updateTeam = (id: string, updates: Partial<Team>) => {
+    setState((prev) => ({
+      ...prev,
+      teams: prev.teams.map((t) => (t.id === id ? { ...t, ...updates } : t)),
+    }));
+  };
+
+  const deleteTeam = (id: string) => {
+    setState((prev) => ({
+      ...prev,
+      teams: prev.teams.filter((t) => t.id !== id),
+    }));
   };
 
   const updateRoleColor = (role: Role, color: string) => {
@@ -296,7 +222,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ...state,
         login,
         logout,
-        changePassword,
         addSituation,
         updateSituation,
         addPredefinedReason,

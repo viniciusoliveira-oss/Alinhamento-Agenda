@@ -2,13 +2,10 @@ export type Role = 'admin' | 'gestor' | 'supervisor' | 'atendente';
 
 export interface User {
   id: string;
-  uid?: string; // Firebase uid
   name: string;
   role: Role;
   username: string;
   teamId?: string;
-  managerId?: string;
-  requirePasswordChange?: boolean;
 }
 
 export interface Team {
@@ -34,12 +31,7 @@ export interface Situation {
   id: string;
   title: string;
   report: string;
-  attendantId: string;
-  attendantName: string;
-  openedById: string;
-  openedByName?: string;
-  managerId?: string;
-  teamId?: string;
+  attendantName: string; // Keeping for simplicity, or we could link to user
   reason: string;
   date: string;
   periodId: string;
