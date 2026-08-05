@@ -1,0 +1,125 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() { return request.auth != null; }
+    
+    // Auth token doesn't have custom claims, so we look up the user's role from the users collection
+    function getUserRole() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role
+        : 'guest';
+    }
+
+    function isAdmin() {
+      return isSignedIn() && getUserRole() == 'admin';
+    }
+    
+    function isGestor() {
+      return isSignedIn() && (getUserRole() == 'gestor' || getUserRole() == 'admin');
+    }
+    
+    function isSupervisor() {
+      return isSignedIn() && (getUserRole() == 'supervisor' || getUserRole() == 'gestor' || getUserRole() == 'admin');
+    }
+
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // User validation
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'name', 'username', 'role'])
+        && data.uid is string && data.uid.size() <= 128
+        && data.name is string && data.name.size() <= 128
+        && data.username is string && data.username.size() <= 128
+        && data.role is string && (data.role == 'admin' || data.role == 'gestor' || data.role == 'supervisor' || data.role == 'atendente')
+        && (data.teamId == null || (data.teamId is string && data.teamId.size() <= 128))
+        && (data.managerId == null || (data.managerId is string && data.managerId.size() <= 128))
+        && (data.requirePasswordChange == null || data.requirePasswordChange is bool);
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(userId) && isValidUser(incoming()) && incoming().uid == request.auth.uid; // Users can create their own profile initially? Or admins create them. Wait, if it's email/auth, admin creates auth, but how does the document get created? Admin creates the document, then user signs in.
+      // Wait, if admin creates a user, they create it with another uid.
+      // Let's allow admins to create any user, and users to read all users (since we need to list them).
+      // Actually, creating a user profile in Firestore should be done by admin.
+      allow create: if isAdmin() && isValidId(userId) && isValidUser(incoming());
+      // Users can update their own requirePasswordChange flag, or admin can update anything.
+      allow update: if isSignedIn() && isValidUser(incoming()) && (
+        isAdmin() ||
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['requirePasswordChange', 'name']))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Team validation
+    function isValidTeam(data) {
+      return data.keys().hasAll(['name'])
+        && data.name is string && data.name.size() <= 128
+        && (data.managerId == null || (data.managerId is string && data.managerId.size() <= 128));
+    }
+
+    match /teams/{teamId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Situation validation
+    function isValidSituation(data) {
+      return data.keys().hasAll(['title', 'report', 'type', 'reason', 'attendantId', 'openedById', 'date', 'periodId', 'createdAt'])
+        && data.title is string && data.title.size() <= 200
+        && data.report is string && data.report.size() <= 5000
+        && data.type is string && data.type.size() <= 50
+        && (data.predefinedReasonId == null || (data.predefinedReasonId is string && data.predefinedReasonId.size() <= 128))
+        && data.reason is string && data.reason.size() <= 500
+        && data.attendantId is string && data.attendantId.size() <= 128
+        && data.openedById is string && data.openedById.size() <= 128
+        && data.date is string && data.date.size() <= 50
+        && data.periodId is string && data.periodId.size() <= 128
+        && data.createdAt is string && data.createdAt.size() <= 50
+        && (data.attendantName == null || (data.attendantName is string && data.attendantName.size() <= 128))
+        && (data.openedByName == null || (data.openedByName is string && data.openedByName.size() <= 128))
+        && (data.managerId == null || (data.managerId is string && data.managerId.size() <= 128));
+    }
+
+    match /situations/{situationId} {
+      allow read: if isSignedIn();
+      // Anyone can create a situation, but openedById must be themselves.
+      allow create: if isSignedIn() && isValidId(situationId) && isValidSituation(incoming()) && incoming().openedById == request.auth.uid;
+      // Only the opener, or supervisor/gestor/admin can update
+      allow update: if isSignedIn() && isValidSituation(incoming()) && (
+        isAdmin() || isSupervisor() || existing().openedById == request.auth.uid
+      );
+      allow delete: if isAdmin() || isSupervisor();
+    }
+
+    // PredefinedReason validation
+    function isValidPredefinedReason(data) {
+      return data.keys().hasAll(['type', 'label'])
+        && data.type is string && data.type.size() <= 50
+        && data.label is string && data.label.size() <= 128;
+    }
+
+    match /predefinedReasons/{reasonId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    // Period validation
+    function isValidPeriod(data) {
+      return data.keys().hasAll(['label'])
+        && data.label is string && data.label.size() <= 128;
+    }
+
+    match /periods/{periodId} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+  }
+}

@@ -1,0 +1,92 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "A user of the system",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string" },
+        "username": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "gestor", "supervisor", "atendente"] },
+        "teamId": { "type": "string" },
+        "managerId": { "type": "string" },
+        "requirePasswordChange": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["uid", "name", "username", "role"]
+    },
+    "Team": {
+      "title": "Team",
+      "description": "A team in the system",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "managerId": { "type": "string" }
+      },
+      "required": ["name"]
+    },
+    "Situation": {
+      "title": "Situation",
+      "description": "A recorded situation",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "report": { "type": "string" },
+        "type": { "type": "string" },
+        "predefinedReasonId": { "type": "string" },
+        "reason": { "type": "string" },
+        "attendantId": { "type": "string" },
+        "attendantName": { "type": "string" },
+        "openedById": { "type": "string" },
+        "openedByName": { "type": "string" },
+        "managerId": { "type": "string" },
+        "date": { "type": "string" },
+        "periodId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["title", "report", "type", "reason", "attendantId", "openedById", "date", "periodId"]
+    },
+    "PredefinedReason": {
+      "title": "PredefinedReason",
+      "description": "A predefined reason for a situation",
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "label": { "type": "string" }
+      },
+      "required": ["type", "label"]
+    },
+    "Period": {
+      "title": "Period",
+      "description": "A period of the day",
+      "type": "object",
+      "properties": {
+        "label": { "type": "string" }
+      },
+      "required": ["label"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "Users collection"
+    },
+    "teams/{teamId}": {
+      "schema": { "$ref": "#/entities/Team" },
+      "description": "Teams collection"
+    },
+    "situations/{situationId}": {
+      "schema": { "$ref": "#/entities/Situation" },
+      "description": "Situations collection"
+    },
+    "predefinedReasons/{reasonId}": {
+      "schema": { "$ref": "#/entities/PredefinedReason" },
+      "description": "Predefined reasons collection"
+    },
+    "periods/{periodId}": {
+      "schema": { "$ref": "#/entities/Period" },
+      "description": "Periods collection"
+    }
+  }
+}
