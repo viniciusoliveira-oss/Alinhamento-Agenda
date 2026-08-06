@@ -4,7 +4,7 @@
  */
 
 import React from 'react';
-import { HashRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AppProvider, useAppContext } from './context/AppContext';
 import { Layout } from './components/Layout';
 import { Login } from './pages/Login';
@@ -26,7 +26,7 @@ const ProtectedRoute = ({ children, requireAdminOrManager }: { children: React.R
 export default function App() {
   return (
     <AppProvider>
-      <Router>
+      <BrowserRouter>
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/" element={<ProtectedRoute><Layout /></ProtectedRoute>}>
@@ -38,7 +38,7 @@ export default function App() {
             <Route path="settings" element={<ProtectedRoute requireAdminOrManager><Settings /></ProtectedRoute>} />
           </Route>
         </Routes>
-      </Router>
+      </BrowserRouter>
     </AppProvider>
   );
 }
