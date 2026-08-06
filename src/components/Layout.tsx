@@ -1,5 +1,5 @@
 import React from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router';
+import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useAppContext } from '../context/AppContext';
 import { LayoutDashboard, Settings, LogOut, FileText, Users, Users2 } from 'lucide-react';
 import { ChangePasswordModal } from './ChangePasswordModal';
