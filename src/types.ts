@@ -5,6 +5,8 @@ export interface User {
   name: string;
   role: Role;
   username: string;
+  password?: string;
+  requiresPasswordChange?: boolean;
   teamId?: string;
 }
 

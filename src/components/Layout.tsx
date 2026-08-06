@@ -2,6 +2,7 @@ import React from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router';
 import { useAppContext } from '../context/AppContext';
 import { LayoutDashboard, Settings, LogOut, FileText, Users, Users2 } from 'lucide-react';
+import { ChangePasswordModal } from './ChangePasswordModal';
 
 export const Layout = () => {
   const { currentUser, logout, roleColors } = useAppContext();
@@ -36,6 +37,7 @@ export const Layout = () => {
 
   return (
     <div className="flex h-screen bg-[#050A12] text-[#E2E8F0] font-sans">
+      <ChangePasswordModal />
       <aside className="w-64 bg-[#0F172A]/80 backdrop-blur-md border-r border-[#334155] flex flex-col shrink-0">
         <div className="p-6 border-b border-[#334155]">
           <h1 className="text-xl font-bold tracking-tight text-[#E2E8F0] flex items-center gap-3">

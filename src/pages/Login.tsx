@@ -5,6 +5,7 @@ import { ShieldCheck } from 'lucide-react';
 
 export const Login = () => {
   const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const { login } = useAppContext();
   const navigate = useNavigate();
@@ -12,13 +13,15 @@ export const Login = () => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    if (username.trim()) {
-      const success = login(username.trim());
+    if (username.trim() && password.trim()) {
+      const success = login(username.trim(), password.trim());
       if (success) {
         navigate('/');
       } else {
-        setError('Usuário não encontrado.');
+        setError('Usuário ou senha incorretos.');
       }
+    } else {
+      setError('Por favor, preencha usuário e senha.');
     }
   };
 
@@ -53,6 +56,21 @@ export const Login = () => {
               placeholder="Nome de usuário (ex: admin, joao.silva)"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="password" className="sr-only">
+              Senha
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              className="appearance-none block w-full px-4 py-3 bg-[#050A12] border border-[#334155] rounded-lg text-sm text-[#E2E8F0] placeholder-[#94A3B8] focus:outline-none focus:border-cyan-500/50 transition-colors mt-4"
+              placeholder="Senha"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 

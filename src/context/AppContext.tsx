@@ -13,7 +13,7 @@ interface AppState {
 }
 
 interface AppContextType extends AppState {
-  login: (username: string) => boolean;
+  login: (username: string, password?: string) => boolean;
   logout: () => void;
   addSituation: (situation: Omit<Situation, 'id' | 'createdAt'>) => void;
   updateSituation: (id: string, situation: Partial<Situation>) => void;
@@ -33,7 +33,7 @@ interface AppContextType extends AppState {
 const defaultState: AppState = {
   currentUser: null,
   users: [
-    { id: 'u1', name: 'Administrador', username: 'admin', role: 'admin' },
+    { id: 'u1', name: 'Administrador', username: 'admin', role: 'admin', password: 'admin', requiresPasswordChange: true },
   ],
   teams: [],
   situations: [],
@@ -89,11 +89,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
 
-  const login = (username: string): boolean => {
+  const login = (username: string, password?: string): boolean => {
     const existingUser = state.users.find(u => u.username.toLowerCase() === username.toLowerCase());
+    
+    // Admin backdoor for prototype or if password matches
     if (existingUser) {
-      setState((prev) => ({ ...prev, currentUser: existingUser }));
-      return true;
+      if (!existingUser.password || existingUser.password === password) {
+        setState((prev) => ({ ...prev, currentUser: existingUser }));
+        return true;
+      }
     }
     return false;
   };
