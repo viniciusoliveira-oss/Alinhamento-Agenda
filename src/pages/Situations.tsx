@@ -23,8 +23,14 @@ export const Situations = () => {
 
   const filteredSituations = useMemo(() => {
     return situations.filter(s => {
-      const matchesSearch = s.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
-                            s.attendantName.toLowerCase().includes(searchTerm.toLowerCase());
+      const searchLower = searchTerm.toLowerCase();
+      const matchesSearch = 
+        s.title.toLowerCase().includes(searchLower) || 
+        (s.attendantName && s.attendantName.toLowerCase().includes(searchLower)) ||
+        (s.teamName && s.teamName.toLowerCase().includes(searchLower)) ||
+        (s.systemProtocol && s.systemProtocol.toLowerCase().includes(searchLower)) ||
+        (s.voalleProtocol && s.voalleProtocol.toLowerCase().includes(searchLower)) ||
+        (s.date && s.date.includes(searchLower));
       const matchesType = filterType ? s.type === filterType : true;
       const matchesPeriod = filterPeriodId ? s.periodId === filterPeriodId : true;
       const matchesAttendant = filterAttendantName ? s.attendantName.toLowerCase().includes(filterAttendantName.toLowerCase()) : true;
@@ -68,7 +74,7 @@ export const Situations = () => {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[#94A3B8]" size={18} />
               <input 
                 type="text"
-                placeholder="Buscar por título ou atendente..."
+                placeholder="Buscar por título, atendente, equipe, protocolo ou data..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-[#050A12] border border-[#334155] rounded-lg text-sm text-[#E2E8F0] placeholder-[#94A3B8] focus:outline-none focus:border-cyan-500/50"
@@ -121,6 +127,7 @@ export const Situations = () => {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#050A12]/80 text-[10px] text-[#94A3B8] uppercase tracking-widest border-b border-[#334155]">
+                <th className="px-6 py-4 font-bold">Protocolos</th>
                 <th className="px-6 py-4 font-bold">Situação</th>
                 <th className="px-6 py-4 font-bold">Responsável</th>
                 <th className="px-6 py-4 font-bold">Data / Período</th>
@@ -135,9 +142,19 @@ export const Situations = () => {
                   const periodObj = periods.find(p => p.id === s.periodId);
                   return (
                     <tr key={s.id} className="hover:bg-white/5 transition-colors">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-mono text-cyan-400 font-bold mb-1" title="Protocolo do Sistema">
+                          {s.systemProtocol || '-'}
+                        </div>
+                        {s.voalleProtocol && (
+                          <div className="text-[10px] font-mono text-[#94A3B8] bg-white/5 px-2 py-0.5 rounded-full inline-block border border-white/10" title="Protocolo Voalle">
+                            {s.voalleProtocol}
+                          </div>
+                        )}
+                      </td>
                       <td className="px-6 py-4 max-w-[250px] whitespace-normal break-words">
                         <div className="font-bold text-[#E2E8F0] text-sm break-words">{s.title}</div>
-                        <div className="text-[10px] text-[#94A3B8] mt-1 break-words">{s.report}</div>
+                        <div className="text-[10px] text-[#94A3B8] mt-1 break-words line-clamp-2" title={s.situationReport}>{s.situationReport}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-normal break-words">
                         <div className="text-sm text-[#E2E8F0] font-medium break-words">{s.attendantName}</div>
@@ -150,7 +167,7 @@ export const Situations = () => {
                         <span className={`inline-flex items-center px-2 py-1 rounded-md text-[10px] font-bold uppercase tracking-wider ${getTypeColor(s.type)}`}>
                           {s.type}
                         </span>
-                        <div className="text-[10px] text-[#94A3B8] mt-1 break-words max-w-[150px]">{preReason ? preReason.label : s.reason}</div>
+                        <div className="text-[10px] text-[#94A3B8] mt-1 break-words max-w-[150px]">{preReason ? preReason.label : 'Motivo não listado (ver relato)'}</div>
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2">
@@ -177,7 +194,7 @@ export const Situations = () => {
                 })
               ) : (
                 <tr>
-                  <td colSpan={5} className="px-6 py-12 text-center text-[#94A3B8] text-sm">
+                  <td colSpan={6} className="px-6 py-12 text-center text-[#94A3B8] text-sm">
                     Nenhuma situação encontrada.
                   </td>
                 </tr>

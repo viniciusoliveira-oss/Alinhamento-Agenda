@@ -54,7 +54,7 @@ export const Dashboard = () => {
   const reasonData = useMemo(() => {
     const counts: Record<string, number> = {};
     currentMonthSituations.forEach(s => {
-      let label = s.reason;
+      let label = predefinedReasons.find(pr => pr.id === s.predefinedReasonId)?.label || 'Outro';
       if (s.predefinedReasonId) {
         const pr = predefinedReasons.find(r => r.id === s.predefinedReasonId);
         if (pr) label = pr.label;
@@ -125,7 +125,7 @@ export const Dashboard = () => {
     setIsExporting(true);
     setExportMenuOpen(false);
     try {
-      const data = situations.map(s => [s.date, s.type, s.reason, s.attendantName, s.report]);
+      const data = situations.map(s => [s.date, s.type, (predefinedReasons.find(pr => pr.id === s.predefinedReasonId)?.label || 'Outro'), s.attendantName, s.situationReport]);
       const headers = ['Data', 'Tipo', 'Motivo', 'Atendente', 'Relato'];
       const url = await exportToGoogleSheets(data, headers, "Relatório de Situações - Alinhamentos CX");
       window.open(url, '_blank');
@@ -164,7 +164,7 @@ export const Dashboard = () => {
     autoTable(doc, {
       startY: 20,
       head: [['Data', 'Tipo', 'Motivo', 'Atendente']],
-      body: situations.map(s => [s.date, s.type, s.reason, s.attendantName]),
+      body: situations.map(s => [s.date, s.type, (predefinedReasons.find(pr => pr.id === s.predefinedReasonId)?.label || 'Outro'), s.attendantName]),
     });
     doc.save('situacoes.pdf');
     setExportMenuOpen(false);
@@ -291,13 +291,12 @@ export const Dashboard = () => {
             >
               {widgetOrder.map((widgetId, index) => {
                 const draggableProps: any = {
-                  key: widgetId,
                   draggableId: widgetId,
                   index,
                   isDragDisabled: currentUser?.role !== 'admin'
                 };
                 return (
-                <Draggable {...draggableProps}>
+                <Draggable key={widgetId} {...draggableProps}>
                   {(provided, snapshot) => (
                     <div
                       ref={provided.innerRef}

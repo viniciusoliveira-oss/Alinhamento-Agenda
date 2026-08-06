@@ -15,7 +15,7 @@ interface AppState {
 interface AppContextType extends AppState {
   login: (username: string, password?: string) => boolean;
   logout: () => void;
-  addSituation: (situation: Omit<Situation, 'id' | 'createdAt'>) => void;
+  addSituation: (situation: Omit<Situation, 'id' | 'createdAt' | 'systemProtocol'>) => void;
   updateSituation: (id: string, situation: Partial<Situation>) => void;
   addPredefinedReason: (reason: Omit<PredefinedReason, 'id'>) => void;
   deletePredefinedReason: (id: string) => void;
@@ -108,10 +108,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
 
-  const addSituation = (situationData: Omit<Situation, 'id' | 'createdAt'>) => {
+  const addSituation = (situationData: Omit<Situation, 'id' | 'createdAt' | 'systemProtocol'>) => {
     const newSituation: Situation = {
       ...situationData,
       id: crypto.randomUUID(),
+      systemProtocol: Math.floor(10000000 + Math.random() * 90000000).toString(),
       createdAt: new Date().toISOString(),
     };
     setState((prev) => ({

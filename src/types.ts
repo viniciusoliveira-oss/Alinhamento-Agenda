@@ -32,13 +32,18 @@ export interface Period {
 export interface Situation {
   id: string;
   title: string;
-  report: string;
-  attendantName: string; // Keeping for simplicity, or we could link to user
-  reason: string;
   date: string;
-  periodId: string;
+  authorName: string; // The user who registered it
+  managerName: string;
+  teamName: string;
+  attendantName: string;
   type: SituationType;
   predefinedReasonId?: string;
+  periodId: string;
+  systemProtocol: string;
+  voalleProtocol: string;
+  osReport: string;
+  situationReport: string;
   createdAt: string;
   attachments?: string[];
 }
