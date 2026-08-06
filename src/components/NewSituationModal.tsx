@@ -130,7 +130,16 @@ export const NewSituationModal = ({ isOpen, onClose, situation, mode }: NewSitua
             </div>
             <div>
               <label className="block text-[10px] uppercase font-bold text-[#94A3B8] tracking-wider mb-1">Gestor do Atendente</label>
-              <input readOnly={isReadOnly} required type="text" value={managerName} onChange={(e) => setManagerName(e.target.value)} placeholder="Nome do gestor" className="w-full bg-[#050A12] border border-[#334155] rounded-lg p-3 text-sm text-[#E2E8F0] focus:outline-none focus:border-cyan-500/50" />
+              <select disabled={isReadOnly} required value={managerName} onChange={(e) => setManagerName(e.target.value)} className="w-full bg-[#050A12] border border-[#334155] rounded-lg p-3 text-sm text-[#E2E8F0] focus:outline-none focus:border-cyan-500/50">
+                <option value="">Selecione um gestor</option>
+                {users.filter(u => u.role === 'gestor' || u.role === 'supervisor').map(u => (
+                  <option key={u.id} value={u.name}>{u.name}</option>
+                ))}
+                {/* Fallback caso o nome já salvo não esteja na lista de gestores */}
+                {managerName && !users.find(u => u.name === managerName && (u.role === 'gestor' || u.role === 'supervisor')) && (
+                  <option value={managerName}>{managerName}</option>
+                )}
+              </select>
             </div>
             <div>
               <label className="block text-[10px] uppercase font-bold text-[#94A3B8] tracking-wider mb-1">Equipe</label>
