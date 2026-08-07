@@ -72,10 +72,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const parsed = JSON.parse(saved);
         return { 
           ...defaultState, 
-          ...parsed,
-          users: parsed.users || defaultState.users,
-          teams: parsed.teams || defaultState.teams,
-          periods: parsed.periods || defaultState.periods,
+          currentUser: parsed.currentUser || null,
           roleColors: parsed.roleColors || defaultState.roleColors
         };
       } catch(e) {
@@ -87,12 +84,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [initialLoadDone, setInitialLoadDone] = useState(false);
 
-  // Sync state to local storage
+  // Sync user state to local storage
   useEffect(() => {
     if (initialLoadDone) {
-      localStorage.setItem('appState', JSON.stringify(state));
+      localStorage.setItem('appState', JSON.stringify({
+        currentUser: state.currentUser,
+        roleColors: state.roleColors
+      }));
     }
-  }, [state, initialLoadDone]);
+  }, [state.currentUser, state.roleColors, initialLoadDone]);
 
   // Load from Supabase on mount
   useEffect(() => {
@@ -203,17 +203,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Helper function to sync with Supabase async
   const syncToSupabase = async (table: string, action: 'insert' | 'update' | 'delete', data: any, id?: string) => {
-    if (!state.isSupabaseConnected) return;
+    if (!state.isSupabaseConnected) {
+      console.warn("Supabase not connected. Skipping sync.");
+      return;
+    }
     try {
+      let result;
       if (action === 'insert') {
-        await supabase.from(table).insert([data]);
+        result = await supabase.from(table).insert([data]);
       } else if (action === 'update' && id) {
-        await supabase.from(table).update(data).eq('id', id);
+        result = await supabase.from(table).update(data).eq('id', id);
       } else if (action === 'delete' && id) {
-        await supabase.from(table).delete().eq('id', id);
+        result = await supabase.from(table).delete().eq('id', id);
+      }
+      if (result && result.error) {
+        console.error(`Supabase sync error on ${table} (${action}):`, result.error);
+        alert(`Erro ao sincronizar com banco de dados (${table}): ${result.error.message}`);
       }
     } catch(err) {
-      console.error(`Supabase sync error on ${table}:`, err);
+      console.error(`Supabase sync catch error on ${table}:`, err);
     }
   };
 

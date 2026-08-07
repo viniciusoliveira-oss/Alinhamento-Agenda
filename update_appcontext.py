@@ -1,29 +1,41 @@
 import re
 
 with open('src/context/AppContext.tsx', 'r') as f:
-    text = f.read()
+    content = f.read()
 
-import_statement = "import { initAuth, getAccessToken, googleSignIn, logout as googleLogout } from '../lib/googleAuth';\n"
-text = text.replace("import { PredefinedReason, Situation, User, Team, Period, Role } from '../types';", import_statement + "import { PredefinedReason, Situation, User, Team, Period, Role } from '../types';")
+# Replace the state initialization
+new_init = """  const [state, setState] = useState<AppState>(() => {
+    const saved = localStorage.getItem('appState');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return { 
+          ...defaultState, 
+          currentUser: parsed.currentUser || null,
+          roleColors: parsed.roleColors || defaultState.roleColors
+        };
+      } catch(e) {
+        return defaultState;
+      }
+    }
+    return defaultState;
+  });"""
 
-use_effect = """  useEffect(() => {
-    localStorage.setItem('appState', JSON.stringify(state));
-  }, [state]);
-  
+content = re.sub(r'  const \[state, setState\] = useState<AppState>\(\(\) => \{.*?  \}\);', new_init, content, flags=re.DOTALL)
+
+# Replace the useEffect for syncing to local storage
+new_sync = """  // Sync user state to local storage
   useEffect(() => {
-    const unsubscribe = initAuth();
-    return () => unsubscribe();
-  }, []);
-"""
-text = text.replace("  useEffect(() => {\n    localStorage.setItem('appState', JSON.stringify(state));\n  }, [state]);", use_effect)
+    if (initialLoadDone) {
+      localStorage.setItem('appState', JSON.stringify({
+        currentUser: state.currentUser,
+        roleColors: state.roleColors
+      }));
+    }
+  }, [state.currentUser, state.roleColors, initialLoadDone]);"""
 
-logout_statement = """  const logout = () => {
-    googleLogout();
-    setState((prev) => ({ ...prev, currentUser: null }));
-  };
-"""
-text = text.replace("  const logout = () => {\n    setState((prev) => ({ ...prev, currentUser: null }));\n  };", logout_statement)
-
+content = re.sub(r'  // Sync state to local storage.*?  }, \[state, initialLoadDone\]\);', new_sync, content, flags=re.DOTALL)
 
 with open('src/context/AppContext.tsx', 'w') as f:
-    f.write(text)
+    f.write(content)
+
