@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const rawSupabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseUrl = rawSupabaseUrl.replace(/\/rest\/v1\/?$/, '');
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
 // We only initialize if the URL is provided, to avoid crashing the app on startup
